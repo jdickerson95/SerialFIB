@@ -2,6 +2,7 @@ from src.Zeiss.crossbeam_client import Point
 
 
 
+
 class FeatureLocation:
     def __init__(self):
         self.confidence=None
@@ -29,4 +30,4 @@ def locate_feature(image,feature_template,template_matcher,original_feature_cent
     #print(match.center.x)
     feature_location.center_in_meters=Point(match.center.x*image_pixel_size.x,match.center.y*image_pixel_size.x)
     return(feature_location)
-    
+

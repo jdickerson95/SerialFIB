@@ -781,7 +781,7 @@ class Ui_MainWindow(object):
         self.graphicsView.aspectRatioMode = QtCore.Qt.KeepAspectRatio
 
     def testPattern(self):
-        scope.test_pattern(fname='D:/Sven/20240609_Test/Test1/0_out/0_trench_left.ptf')
+        scope.test_pattern(fname='D:/EML/Test/SerialFIB_3-21-25/Automation3/0_out/0_trench_left.ptf')
         return()
 
 ##################################
