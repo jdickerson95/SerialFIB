@@ -1,6 +1,7 @@
 import sys
 import time
 import shutil
+import os
 
 #sys.coinit_flags = 0  # type: ignore
 #import pythoncom  # isort:skip  # noqa: E402, F401
@@ -22,10 +23,27 @@ except:
     from src.Zeiss.read_probe_table import *
 import numpy as np
 #from SEM_API import SEM_API
-try:
-    from src.Zeiss.SEM_API import SEM_API
-except ModuleNotFoundError:
-    from SEM_API import SEM_API
+
+# Check if we're in test mode (environment variable or command line arg)
+TEST_MODE = os.environ.get('TEST_MODE', 'False').lower() in ('true', '1', 't') or '--test' in sys.argv
+
+if TEST_MODE:
+    print("Running in TEST MODE with mock SEM API")
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+    from SEM_API.MockAPI import MockSEM as SEM_API
+else:
+    try:
+        from src.Zeiss.SEM_API import SEM_API
+    except ModuleNotFoundError:
+        # Fall back to direct import if running on the microscope
+        try:
+            from win32com import client
+            # Regular imports that would work on the microscope
+        except ModuleNotFoundError:
+            print("ERROR: win32com module not found and not in TEST_MODE")
+            print("Run with TEST_MODE=True or --test flag for testing on non-Windows systems")
+            sys.exit(1)
+
 import math
 
 #global probe_table_path

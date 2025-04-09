@@ -20,7 +20,7 @@
 #                   DOI:                                       #
 #                                                              #
 #                                                              #
-#          SerialFIB: A Developer’s Tool for Automated         #
+#          SerialFIB: A Developer's Tool for Automated         #
 #                 cryo-FIB Customized Workflows                #
 #                                                              #
 #     with bug reports, suggestions, etc. please contact:      #
@@ -68,7 +68,22 @@ from src.VolumeDesigner import Ui_VolumeDesigner
 from src.Param3D import Param3D
 
 ### INITIALIZE MICROSCOPE FROM DRIVER
-scope=fibsem()
+# Add this at the top of your file, after other imports
+import os
+import sys
+
+# Check if we're in test mode (environment variable or command line arg)
+TEST_MODE = os.environ.get('TEST_MODE', 'False').lower() in ('true', '1', 't') or '--test' in sys.argv
+
+# Use the appropriate import based on test mode
+if TEST_MODE:
+    print("Running in TEST MODE with mock SEM API")
+    from SEM_API.MockAPI import MockSEM
+    scope = MockSEM()
+else:
+    # Your original import
+    scope = fibsem()
+
 ###
 print(scope)
 
@@ -2767,6 +2782,7 @@ class LamellaView(QtWidgets.QGraphicsView):
             #for i in patterns:
             #    print("Pattern Number "+str(patterns.index(i))+str(" is ")+str(i.w*pixel_size[0]*1000000)+" µm wide.")
         
+
     def paintpoint(self,x,y):
         #Painting Correlation Spots
         point=QtCore.QPointF(x,y)
