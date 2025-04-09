@@ -319,16 +319,21 @@ class CustomCVMatcher(TemplateMatcher):
 
 
     def match(self, image: AdornedImage, template: AdornedImage):
-
-
-
+        print('THIS IS THE IMAGE TO MATCH')
+        print(np.shape(image.data))
+        print('I WAS RUNNING THIS CODE !!!!!!!')
         # Convert to 8-bit and normalize
+        image_8bit=image.data[:,:,1]
+        template_8bit=template.data[:,:,1]
+        #image_8bit=np.dot(image.data[..., :3], [0.2989, 0.5870, 0.1140])
+        #image_8bit=image.data
+        #template_8bit=np.dot(template_8bit.data[..., :3], [0.2989, 0.5870, 0.1140])
+        print(image_8bit)
+        #image_8bit = self.normalized_uint8(image)
+        
+        #template_8bit = self.normalized_uint8(template)
 
-        image_8bit = self.normalized_uint8(image)
-
-        template_8bit = self.normalized_uint8(template)
-
-        print(image_8bit.shape)
+        #print(image_8bit.shape)
         #print(template_8bit)
 
         # Remove Databar if present

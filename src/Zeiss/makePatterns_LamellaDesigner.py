@@ -26,7 +26,7 @@
 ################################################################
 '''
 
-def makePatterns_LamellaDesigner(step,side,thickness_lamella,thickness_patterns,y_center, width, pattern_type, milling_current, output_dir,time,mode='fine',y_min=None,y_max=None):
+def makePatterns_LamellaDesigner(step,side,thickness_lamella,thickness_patterns,y_center, width, pattern_type, milling_current, output_dir,time,mode='fine',y_min=None,y_max=None, offset_x=0.0):
     '''
     Input: Step as string, side as string ('both','top','bottom'), thickness_lamella as float, thickness_patterns as float,
             y_center as float, width as float, pattern_type as string ("Regular","Cross-Section","Cleaning Cross-Section"),
@@ -78,7 +78,7 @@ def makePatterns_LamellaDesigner(step,side,thickness_lamella,thickness_patterns,
             for j in range(2):
                 output_file.write('Pattern=' + str(pattern_num[factors[j]]) + '\n')
                 output_file.write('Offset_y=' + str(offsets_y[j]+factors_rough[j]*thicknesses[j]) + '\n')
-                output_file.write('Offset_x=0.0e-06' + '\n')
+                output_file.write('Offset_x=' + str(offset_x) + '\n')
                 output_file.write('Height_y=' + str(factors_rough2[j]*thicknesses[j]) + '\n')
                 output_file.write('Width_x=' + str(width) + '\n')
                 output_file.write('PatternType=' + str(pattern_type) + '\n')
@@ -100,7 +100,7 @@ def makePatterns_LamellaDesigner(step,side,thickness_lamella,thickness_patterns,
                     output_file.write('Pattern='+str(pattern_num[i])+'\n')
                     #output_file.write('Offset_y='+str(i*offset_y+i*(thickness_lamella/2))+'\n')
                     output_file.write('Offset_y='+str(i*offset_y/2)+'\n')
-                    output_file.write('Offset_x=0.0e-06'+'\n')
+                    output_file.write('Offset_x=' + str(offset_x) + '\n')
                     output_file.write('Height_y='+str(-i*thickness_patterns)+'\n')
                     output_file.write('Width_x='+str(width)+'\n')
                     output_file.write('PatternType='+str(pattern_type)+'\n')
@@ -116,7 +116,7 @@ def makePatterns_LamellaDesigner(step,side,thickness_lamella,thickness_patterns,
                 output_file.write('Time=' + str(time) + '\n')
                 output_file.write('Pattern=0'+'\n')
                 output_file.write('Offset_y='+str(-offset_y/2)+'\n')
-                output_file.write('Offset_x=0.0e-06'+'\n')
+                output_file.write('Offset_x=' + str(offset_x) + '\n')
                 output_file.write('Height_y='+str(thickness_patterns)+'\n')
                 output_file.write('Width_x='+str(width)+'\n')
                 output_file.write('PatternType='+str(pattern_type)+'\n')
@@ -132,7 +132,7 @@ def makePatterns_LamellaDesigner(step,side,thickness_lamella,thickness_patterns,
                 output_file.write('Time=' + str(time) + '\n')
                 output_file.write('Pattern=0'+'\n')
                 output_file.write('Offset_y='+str(offset_y/2)+'\n')
-                output_file.write('Offset_x=0.0e-06'+'\n')
+                output_file.write('Offset_x=' + str(offset_x) + '\n')
                 output_file.write('Height_y='+str(-thickness_patterns)+'\n')
                 output_file.write('Width_x='+str(width)+'\n')
                 output_file.write('PatternType='+str(pattern_type)+'\n')
@@ -141,7 +141,7 @@ def makePatterns_LamellaDesigner(step,side,thickness_lamella,thickness_patterns,
                 output_file.write('/Step\n')
 
 
-def make_protocol(parameter_list,mode='fine',y_min=None,y_max=None):
+def make_protocol(parameter_list,mode='fine',y_min=None,y_max=None, offset_x=0.0):
     '''
     Input: Parameter list read from protocol file using read_protocolfile,
             optional mode : "rough" takes extreme points for material ablation into account, "fine" does not
@@ -174,15 +174,15 @@ def make_protocol(parameter_list,mode='fine',y_min=None,y_max=None):
         if mode=='rough':
             if i==0:
                 makePatterns_LamellaDesigner(step, side, thickness_lamella, thickness_patterns, y_center, width,
-                                             pattern_type, milling_current, output_dir, time, mode, y_min, y_max)
+                                             pattern_type, milling_current, output_dir, time, mode, y_min, y_max, offset_x)
             #if i==1:
             #    makePatterns_LamellaDesigner(step, side, thickness_lamella, -thickness_patterns, y_center-thickness_patterns, width,
             #                                 pattern_type, milling_current, output_dir, time)
             else:
                 makePatterns_LamellaDesigner(step, side, thickness_lamella, thickness_patterns, y_center, width,
-                                             pattern_type, milling_current, output_dir, time)
+                                             pattern_type, milling_current, output_dir, time, offset_x)
         else:
-            makePatterns_LamellaDesigner(step, side, thickness_lamella, thickness_patterns, y_center, width, pattern_type, milling_current, output_dir,time)
+            makePatterns_LamellaDesigner(step, side, thickness_lamella, thickness_patterns, y_center, width, pattern_type, milling_current, output_dir,time, offset_x)
         i=i+1
     return()
 

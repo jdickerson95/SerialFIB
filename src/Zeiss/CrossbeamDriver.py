@@ -40,6 +40,7 @@ microscope = MicroscopeClient()
 from src.Zeiss.custom_matchers_Zeiss import *
 
 from src.Zeiss.tiff_handle import write_tiff,read_tiff
+from src.Zeiss.LocateFeature import locate_feature
 #from src.Zeiss.tiff_handle import read_tiff
 #from src.read_SAV import read_SAV_params
 import cv2
@@ -141,7 +142,7 @@ class fibsem:
         self.testing=False
         # Default alignment current
         self.alignment_current = float(1e-11)
-        self.trench_offset = 4e-06
+        self.trench_offset = 5e-06
         # Variable for stopping operation
         self.continuerun = True
 
@@ -150,7 +151,7 @@ class fibsem:
         #self.APIpath=r'C:/Users/Sven/Pictures/test3.tif'
         
 
-        self.dummy_pattern=r"D:/User_Data/Sven/SerialFIB/TemplatePatterns/Zeiss/layout001.ely"
+        self.dummy_pattern=r"C:/Users/sem/Documents/SerialFIB/TemplatePatterns/Zeiss/layout001.ely"
         self.probe_table=r"C:/ProgramData/Carl Zeiss/SmartSEM/Config/ProbeTable.xml"
         self.APIpath="C:/api/Grab.tif"
         self.connect()
@@ -529,6 +530,7 @@ class fibsem:
                 self.auto_cb()
                 microscope.beams.ion_beam.beam_shift.value=Point(0,0)
                 current_img=self.take_image_IB()
+                print(current_img)
 
 
                 # Load Matcher function and locate feature
@@ -616,7 +618,7 @@ class fibsem:
 
 
                 favourite_matcher = CustomCVMatcher(cv2.TM_CCOEFF_NORMED, tiling=False)
-                l = vision_toolkit.locate_feature(current_img, image, favourite_matcher)
+                l = locate_feature(current_img, image, favourite_matcher)
                 print("Current confidence: " + str(l.confidence))
                 move_count = 0
 
@@ -652,7 +654,7 @@ class fibsem:
 
                     move_count += 1
                     current_img = self.take_image_EB()
-                    l = vision_toolkit.locate_feature(current_img, image, favourite_matcher)
+                    l = locate_feature(current_img, image, favourite_matcher)
                 microscope.beams.electron_beam.scanning.resolution.value = old_resolution
                 microscope.beams.electron_beam.horizontal_field_width.value = old_mag
                 #self.alignment_img_buffer = current_img
@@ -741,7 +743,7 @@ class fibsem:
                 current_img = self.take_image_EB()
 
                 favourite_matcher = CustomCVMatcher(cv2.TM_CCOEFF_NORMED, tiling=False)
-                l = vision_toolkit.locate_feature(current_img, image, favourite_matcher)
+                l = locate_feature(current_img, image, favourite_matcher)
                 print("Current confidence: " + str(l.confidence))
                 move_count = 0
 
@@ -777,7 +779,7 @@ class fibsem:
 
                     move_count += 1
                     current_img = self.take_image_EB()
-                    l = vision_toolkit.locate_feature(current_img, image, favourite_matcher)
+                    l = locate_feature(current_img, image, favourite_matcher)
                 microscope.beams.electron_beam.scanning.resolution.value = old_resolution
                 microscope.beams.electron_beam.horizontal_field_width.value = old_mag
 
@@ -1236,8 +1238,8 @@ class fibsem:
 
         pattern_left_name = lamella_name + str('_trench_left.ptf')
         pattern_right_name = lamella_name + str('_trench_right.ptf')
-        self.save_pattern(patterns_output_directory, pattern_left_name, pattern_left, current=7e-10, time=60)
-        self.save_pattern(patterns_output_directory, pattern_right_name, pattern_right, current=7e-10, time=60)
+        self.save_pattern(patterns_output_directory, pattern_left_name, pattern_left, current=3e-10, time=90)
+        self.save_pattern(patterns_output_directory, pattern_right_name, pattern_right, current=3e-10, time=90)
 
         self.moveStageAbsolute(stagepos)
 
@@ -1245,7 +1247,7 @@ class fibsem:
         ref_img.save(patterns_output_directory[:-1] + '/before_trenches.tif')
         self.align(ref_img, 'ION')
 
-        self.align_current(new_current=7e-10, beam='ION')
+        self.align_current(new_current=3e-10, beam='ION')
         #print(patterns_output_directory,pattern_left_name)
         #self.run_custom_milling(patterns_output_directory,pattern_left_name,milling_time=60)
         #self.run_custom_milling(patterns_output_directory,pattern_right_name,milling_time=60)
@@ -1286,16 +1288,21 @@ class fibsem:
         from src.Zeiss.makePatterns_LamellaDesigner import read_protocolfile
         from src.Zeiss.makePatterns_LamellaDesigner import write_protocolfile
         protocolfile_lists=read_protocolfile(protocol_filename)
+        offset_x = 0.0
         for i in protocolfile_lists:
-            i.update({'width':width_lamella})
+            if 'width' in i and float(i['width']) >= 0.1:  
+                #offset_x = (((1-float(i['width'])) * float(width_lamella))/2)*-0.5
+                i['width'] = float(i['width']) * float(width_lamella)
+            else:
+                i.update({'width':width_lamella})
             i.update({'y_center':lamella_center_y})
             i.update({'output_dir':str(self.output_dir)})
 
 
         if mode=='rough':
-            make_protocol(protocolfile_lists,mode='rough',y_min=start_position_below,y_max=start_position_above)
+            make_protocol(protocolfile_lists,mode='rough',y_min=start_position_below,y_max=start_position_above, offset_x=offset_x)
         else:
-            make_protocol(protocolfile_lists)
+            make_protocol(protocolfile_lists, offset_x=offset_x)
 
         filename_from_protocol = str(self.output_dir) + 'patternfile_from_protocol.pf'
 
