@@ -325,6 +325,10 @@ class Ui_MainWindow(object):
         self.Button_RunTrenchMilling = QtWidgets.QPushButton(self.verticalLayoutWidget_4)
         self.Button_RunTrenchMilling.setObjectName("Button_RunTrenchMilling")
         self.verticalLayout_4.addWidget(self.Button_RunTrenchMilling)
+        # Add new button for combined Trench Milling and Rough Protocol
+        self.Button_RunTrenchRough = QtWidgets.QPushButton(self.verticalLayoutWidget_4)
+        self.Button_RunTrenchRough.setObjectName("Button_RunTrenchRough")
+        self.verticalLayout_4.addWidget(self.Button_RunTrenchRough)
         #self.Button_RunRoughMilling = QtWidgets.QPushButton(self.verticalLayoutWidget_4)
         #self.Button_RunRoughMilling.setObjectName("Button_RunRoughMilling")
         #self.verticalLayout_4.addWidget(self.Button_RunRoughMilling)
@@ -536,6 +540,8 @@ class Ui_MainWindow(object):
         self.Button_RunRoughProtocol.setText(_translate("MainWindow", "Run Rough Protocol"))
         self.Button_RunFineProtocol.setText(_translate("MainWindow", "Run Fine Protocol"))
         self.Button_RunTrenchMilling.setText(_translate("MainWindow", "Run Trench Milling"))
+        # Set text for the new Trench-Rough button
+        self.Button_RunTrenchRough.setText(_translate("MainWindow", "Run Trench-Rough"))
         #self.Button_RunRoughMilling.setText(_translate("MainWindow", "Run Rough Milling"))
         #self.Button_RunFineMilling.setText(_translate("MainWindow", "Run Fine Milling"))
         self.Button_LoadCorrelationImages.setText(_translate("MainWindow", "Load Correlation Images"))
@@ -717,6 +723,8 @@ class Ui_MainWindow(object):
         self.Button_RunCustomProtocol.pressed.connect(self.customprotocol)
         self.Button_RunTrenchMilling.pressed.connect(self.trenchmill)
         self.Button_RunCustomPatternfile.pressed.connect(self.custompatternfilerun)
+        # Connect the new button to the trenchroughprotocol method
+        self.Button_RunTrenchRough.pressed.connect(self.trenchroughprotocol)
 
 
         '''
@@ -2274,68 +2282,21 @@ class Ui_MainWindow(object):
         except:
             print("Something went wrong with the setup.")
             print(sys.exc_info())
-            #ui.progressDialog.close()
-        #try:
-        #    ui.progressDialog.close()
-        #except:
         self.progressDialog.close()
-        #self.runRoughMill2_Done('Rough Mill stopped')
         return()
-
-
-    # def customprotocol(self):
-    #     self.number
-    #     self.threads.append(CustomProtocolThread())
-    #     customprotocol_thread=self.threads[self.number]
-    #     self.number=self.number+1
-    #     try:
-
-    #         self.progressDialog = QtWidgets.QDialog()
-    #         verticalLayout = QtWidgets.QVBoxLayout(self.progressDialog)
-    #         label = QtWidgets.QLabel("Running Custom Protocol",self.progressDialog)
-    #         verticalLayout.addWidget(label)
-    #         buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Cancel,self.progressDialog)
-
-    #         customprotocol_thread.__init__()
-    #         customprotocol_thread.start()
-    #         buttonBox.rejected.connect(self.progressDialog.reject)
-    #         verticalLayout.addWidget(buttonBox)
-    #         scope.continuerun = True
-    #         while customprotocol_thread.isRunning():
-    #             if self.progressDialog.exec() == QtWidgets.QDialog.Rejected:
-
-    #                 self.Signal_Done('Custom Protocol stopped')
-
-    #                 print("Custom Protocol has been stopped")
-
-
-    #                 while customprotocol_thread.isRunning():
-
-    #                     from autoscript_sdb_microscope_client.enumerations import PatterningState
-
-    #                     if scope.is_idle():
-    #                         continue
-    #                     else:
-    #                         scope.stop_patterning()
-
-    #                         scope.stop()
-    #                         scope.continuerun=False
-    #                         customprotocol_thread.continuerun=False
-    #                         customprotocol_thread.stop()
-
-    #                         self.progressDialog.close()
-
-    #                         print("Operation terminated")
-
-    #         self.progressDialog.close()
-
-    #         self.Signal_Done('Custom Protocol stopped')
-    #     except:
-    #         print("Something went wrong with the setup.")
-    #         print(sys.exc_info())
-    #     self.progressDialog.close()
-
-    #     return()
+        
+    def trenchroughprotocol(self):
+        """
+        This method combines the trench milling and rough protocol operations.
+        It first runs the trench milling and then proceeds with the rough protocol.
+        """
+        # First run trench milling
+        self.trenchmill()
+        
+        # After trench milling is complete, run rough protocol
+        self.roughprotocol()
+        
+        return()
 
     def volumeimaging(self):
         
