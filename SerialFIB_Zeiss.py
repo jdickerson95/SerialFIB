@@ -2927,6 +2927,88 @@ class TrenchMillThread(QtCore.QThread):
                     pattern_dir = ui.output_dir + '/' + str(label) + '/'
                     log_out_new = scope.run_trench_milling(label, alignment_image, stagepos, pattern_dir)
                     ui.log_out = ui.log_out + log_out_new
+                    
+                    # Take a new ion beam image after trench milling
+                    self.signal.emit("Taking new IB alignment image after trench milling...")
+                    try:
+                        # Switch to the imaging alignment current (typically 10 pA) before taking the image
+                        # This ensures we're not using the higher milling current (300 pA) for imaging
+                        self.signal.emit("Switching to imaging current...")
+                        
+                        # Use alignment_current which is typically set to 10 pA
+                        # If not explicitly set, we'll use 10 pA directly
+                        try:
+                            imaging_current = scope.alignment_current
+                        except:
+                            imaging_current = float(1e-11)  # 10 pA
+                        
+                        # Use align_current to change the beam current before taking the image
+                        scope.align_current(imaging_current, beam='ION')
+                        
+                        # Take a new image with ion beam
+                        current_img = scope.take_image_IB()
+                        
+                        # Save the updated image
+                        patterns_output_directory = pattern_dir[:-1] + '_out/'
+                        current_img.save(patterns_output_directory[:-1] + '/after_trenches.tif')
+                        
+                        # Store the patterns associated with this image before replacing it
+                        # This ensures we preserve the pattern information
+                        pattern_list = []
+                        try:
+                            # Get the patterns associated with this image
+                            if str(image_number) in ui.pattern_dict:
+                                pattern_list = ui.pattern_dict[str(image_number)]
+                        except Exception as pattern_ex:
+                            self.signal.emit(f"Warning: Could not retrieve patterns for image {image_number}: {str(pattern_ex)}")
+                        
+                        # Update the alignment image in the buffer
+                        ui.ImageBufferImages[image_number] = current_img
+                        
+                        # Update the scene for this image
+                        try:
+                            # Get the image data
+                            array = current_img.data
+                            
+                            # Create a new scene for this image
+                            scene = ui.get_scene()
+                            scene.clear()
+                            
+                            # Convert the image for display
+                            array8u = cv2.convertScaleAbs(array, alpha=(255.0/65535.0))
+                            img_8bit = np.uint8(array)
+                            img_8bit = cv2.cvtColor(img_8bit, cv2.COLOR_BGR2GRAY)
+                            
+                            # Create pixmap from image
+                            height, width = np.shape(img_8bit)[0], np.shape(img_8bit)[1]
+                            qImg = QtGui.QImage(img_8bit, width, height, QtGui.QImage.Format_Grayscale8)
+                            pixmapImg = QtGui.QPixmap.fromImage(qImg)
+                            
+                            # Set scene properties
+                            ui.graphicsView.setSceneRect(QtCore.QRectF(pixmapImg.rect()))
+                            ui.graphicsView.fitInView(ui.graphicsView.sceneRect(), ui.graphicsView.aspectRatioMode)
+                            
+                            # Add image to scene
+                            scene.addPixmap(pixmapImg)
+                            
+                            # Re-add all the patterns to the scene
+                            for pattern in pattern_list:
+                                scene.addItem(Rectangle(pattern.x, pattern.y, pattern.h, pattern.w))
+                            
+                            # Update scene in buffer
+                            if len(ui.sceneBuffer) > image_number:
+                                ui.sceneBuffer[image_number] = scene
+                            
+                            # If this is the currently displayed image, update the view
+                            if int(ui.ImageBufferHandle) == image_number:
+                                ui.graphicsView.setScene(scene)
+                                ui.scene = scene
+                            
+                            self.signal.emit(f"Updated alignment image for position {label} while preserving patterns")
+                        except Exception as scene_ex:
+                            self.signal.emit(f"Error updating scene for new image: {str(scene_ex)}")
+                    except Exception as ex:
+                        self.signal.emit(f"Error taking post-mill image: {str(ex)}")
 
                 ui.sysout.write(ui.log_out)
 
