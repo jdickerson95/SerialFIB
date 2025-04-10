@@ -1228,14 +1228,14 @@ class Ui_MainWindow(object):
             self.tableWidget.setItem(numRows, 4, QtWidgets.QTableWidgetItem(str(self.StagePos['r'])))
             self.tableWidget.setItem(numRows, 5, QtWidgets.QTableWidgetItem(str(self.StagePos['t'])))
             # Set default value for auto-focus column (8) - default to 1 (enabled)
-            self.tableWidget.setItem(numRows, 8, QtWidgets.QTableWidgetItem("1"))
+            self.tableWidget.setItem(numRows, 8, QtWidgets.QTableWidgetItem("0"))
             # Set default value for depth column (9) - default to 1
             self.tableWidget.setItem(numRows, 9, QtWidgets.QTableWidgetItem("1"))
 
         except:
             print("Something went wrong, please let us know!")
             print(sys.exc_info())
-    def addRow_load(self,label,x,y,z,r,t,alignment_image="",patterns="",autofocus="1",depth="1"):
+    def addRow_load(self,label,x,y,z,r,t,alignment_image="",patterns="",autofocus="0",depth="1"):
         try:
             numRows = self.tableWidget.rowCount()
             self.tableWidget.insertRow(numRows)
