@@ -888,6 +888,63 @@ class fibsem:
         microscope.imaging.set_active_view(active_view)
         return()
 
+    def auto_focus_trench(self, directory, pattern_lamella, pattern_above, pattern_below, beam="ION", trench_side="right"):
+        '''
+        Input: 
+        - Directory containing the user input from the SerialFIB GUI as xT patterns
+        - Pattern files for lamella, above and below patterns
+        - Beam (defaulting to "ION")
+        - Trench side to focus on ("right" or "left", defaults to "right")
+        Output: None
+        Action: 
+        1. Saves current stage position
+        2. Calculates the trench position similar to create_trench_patterns
+        3. Moves the stage to the trench position
+        4. Performs autofocus at the trench
+        5. Returns to the original lamella position
+        '''
+        extra_safety_offset = 0.5e-06
+        
+        # Calculate trench position based on the same logic as create_trench_patterns
+        pattern_above = self.pattern_parser(directory, pattern_above)
+        pattern_below = self.pattern_parser(directory, pattern_below)
+        pattern_lamella = self.pattern_parser(directory, pattern_lamella)
+        
+        lamella_center_x = pattern_lamella.center_x
+        width_lamella = pattern_lamella.width
+        
+        # Calculate trench positions
+        left_trench_x = (lamella_center_x) - self.trench_offset - 0.5e-06 - extra_safety_offset
+        right_trench_x = (lamella_center_x) + width_lamella + self.trench_offset + extra_safety_offset
+        
+        # Determine which trench to focus on
+        if trench_side.lower() == "left":
+            trench_x = left_trench_x
+        else:  # Default to right
+            trench_x = right_trench_x
+            
+        # Calculate relative movement needed to move to trench position
+        x_move = trench_x - lamella_center_x
+        
+        # Move stage to trench position
+        relative_move = {'x': x_move, 'y': 0.0, 'z': 0.0, 'r': 0.0, 't': 0.0}
+        self.moveStageRelative(relative_move)
+        
+        # Perform auto focus
+        active_view = microscope.imaging.get_active_view()
+        if beam == "ELECTRON":
+            microscope.imaging.set_active_view(1)
+        else:
+            microscope.imaging.set_active_view(2)
+        microscope.auto_functions.run_auto_focus()
+        microscope.imaging.set_active_view(active_view)
+        
+        # Move back to original lamella position
+        reverse_move = {'x': -x_move, 'y': 0.0, 'z': 0.0, 'r': 0.0, 't': 0.0}
+        self.moveStageRelative(reverse_move)
+        
+        return()
+
 
     def create_pattern(self,x,y,h,w,d=10e-06):
         '''

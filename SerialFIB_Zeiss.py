@@ -345,7 +345,7 @@ class Ui_MainWindow(object):
         self.tableWidget.setGeometry(QtCore.QRect(230, 500, 831, 241))
         self.tableWidget.setMouseTracking(False)
         self.tableWidget.setAlternatingRowColors(True)
-        self.tableWidget.setColumnCount(8)
+        self.tableWidget.setColumnCount(9)  # Changed from 8 to 9 columns to add the auto-focus flag
         self.tableWidget.setObjectName("tableWidget")
         self.tableWidget.setRowCount(0)
         item = QtWidgets.QTableWidgetItem()
@@ -364,6 +364,8 @@ class Ui_MainWindow(object):
         self.tableWidget.setHorizontalHeaderItem(6, item)
         item = QtWidgets.QTableWidgetItem()
         self.tableWidget.setHorizontalHeaderItem(7, item)
+        item = QtWidgets.QTableWidgetItem()
+        self.tableWidget.setHorizontalHeaderItem(8, item)  # Added new header item for auto-focus column
         self.plainTextEdit = QtWidgets.QPlainTextEdit(self.centralwidget)
         self.plainTextEdit.setGeometry(QtCore.QRect(10, 760, 1051, 111))
         self.plainTextEdit.setReadOnly(True)
@@ -562,6 +564,8 @@ class Ui_MainWindow(object):
         item.setText(_translate("MainWindow", "Alignment Image?"))
         item = self.tableWidget.horizontalHeaderItem(7)
         item.setText(_translate("MainWindow", "Patterns?"))
+        item = self.tableWidget.horizontalHeaderItem(8)
+        item.setText(_translate("MainWindow", "Auto-focus"))
         self.label_4.setText(_translate("MainWindow", "Error Log"))
         self.label_5.setText(_translate("MainWindow", "Image Buffer"))
         self.comboBox.setItemText(0, _translate("MainWindow", "green"))
@@ -1219,11 +1223,13 @@ class Ui_MainWindow(object):
             self.tableWidget.setItem(numRows, 3, QtWidgets.QTableWidgetItem(str(self.StagePos['z'])))
             self.tableWidget.setItem(numRows, 4, QtWidgets.QTableWidgetItem(str(self.StagePos['r'])))
             self.tableWidget.setItem(numRows, 5, QtWidgets.QTableWidgetItem(str(self.StagePos['t'])))
+            # Set default value for auto-focus column (8) - default to 1 (enabled)
+            self.tableWidget.setItem(numRows, 8, QtWidgets.QTableWidgetItem("1"))
 
         except:
             print("Something went wrong, please let us know!")
             print(sys.exc_info())
-    def addRow_load(self,label,x,y,z,r,t,alignment_image="",patterns=""):
+    def addRow_load(self,label,x,y,z,r,t,alignment_image="",patterns="",autofocus="1"):
         try:
             numRows = self.tableWidget.rowCount()
             self.tableWidget.insertRow(numRows)
@@ -1235,6 +1241,7 @@ class Ui_MainWindow(object):
             self.tableWidget.setItem(numRows, 5, QtWidgets.QTableWidgetItem(t))
             self.tableWidget.setItem(numRows, 6, QtWidgets.QTableWidgetItem(alignment_image))
             self.tableWidget.setItem(numRows, 7, QtWidgets.QTableWidgetItem(patterns))
+            self.tableWidget.setItem(numRows, 8, QtWidgets.QTableWidgetItem(autofocus))
         except:
             print("Something went wrong, please let us know!")
             print(sys.exc_info())
@@ -1998,7 +2005,7 @@ class Ui_MainWindow(object):
             positions=[]
             for i in range(0,num):
                 position=[]
-                for j in range(0,8):
+                for j in range(0,9):  # Changed from 8 to 9 to include the auto-focus column
                     position.append(self.tableWidget.item(i,j).text())
                 positions.append(position)
 
@@ -2472,7 +2479,12 @@ class Ui_MainWindow(object):
 
                 ### Load Stage Positions
                 for i in session_dict['positions']:
-                    self.addRow_load(i[0],i[1],i[2],i[3],i[4],i[5],i[6],i[7])
+                    # Check if the position data includes auto-focus flag (for backward compatibility)
+                    if len(i) >= 9:
+                        self.addRow_load(i[0], i[1], i[2], i[3], i[4], i[5], i[6], i[7], i[8])
+                    else:
+                        # For backward compatibility with older session files
+                        self.addRow_load(i[0], i[1], i[2], i[3], i[4], i[5], i[6], i[7])
 
 
                 ### Load Images
@@ -2888,6 +2900,37 @@ class TrenchMillThread(QtCore.QThread):
                     pattern_dir = ui.output_dir + '/' + str(label) + '/'
                     log_out_new = scope.run_trench_milling(label, alignment_image, stagepos, pattern_dir)
                     ui.log_out = ui.log_out + log_out_new
+                    
+                    # Check if auto-focus is enabled for this position
+                    autofocus_enabled = False
+                    try:
+                        # Get the auto-focus flag from column 8 (0 = disabled, 1 = enabled)
+                        autofocus_item = ui.tableWidget.item(i, 8)
+                        if autofocus_item and autofocus_item.text() == "1":
+                            autofocus_enabled = True
+                    except Exception as af_ex:
+                        self.signal.emit(f"Warning: Could not read auto-focus flag: {str(af_ex)}")
+                        # Default to false if there's an error
+                    
+                    # Only perform auto-focus if enabled for this position
+                    if autofocus_enabled:
+                        # Auto-focus on the right trench before taking a new image
+                        self.signal.emit("Auto-focusing on trench position...")
+                        try:
+                            # Move to the trench, auto-focus, and move back to lamella position
+                            scope.auto_focus_trench(
+                                directory=pattern_dir,
+                                pattern_lamella=str(label)+'_lamella.ptf',
+                                pattern_above=str(label)+'_tp.ptf',
+                                pattern_below=str(label)+'_bp.ptf',
+                                beam="ION",  # Using ion beam for auto-focus
+                                trench_side="right"  # Focus on the right trench by default
+                            )
+                            self.signal.emit("Auto-focus on trench completed successfully")
+                        except Exception as focus_ex:
+                            self.signal.emit(f"Warning: Auto-focus on trench failed: {str(focus_ex)}")
+                    else:
+                        self.signal.emit("Auto-focus on trench skipped (disabled for this position)")
                     
                     # Take a new ion beam image after trench milling
                     self.signal.emit("Taking new IB alignment image after trench milling...")
