@@ -1944,11 +1944,12 @@ class fibsem:
 
 
 
-    def run_milling_protocol(self, lamella_name, alignment_image, stagepos, pattern_ref_directory, protocol_filename,mode='fine'):
+    def run_milling_protocol(self, lamella_name, alignment_image, stagepos, pattern_ref_directory, protocol_filename, mode='fine', depth=1):
         '''
         Input: lamella name from positions, alignment image as numpy array, stageposition as dictionary,
                 site definition directory from the SerialFIB GUI, path to protocol file as string,
-                optional mode , "Rough" takes extreme positions for material ablation into account, "fine" does not
+                optional mode , "Rough" takes extreme positions for material ablation into account, "fine" does not,
+                depth parameter to scale milling time (default: 1)
         Output: Logging
         Action: Runs milling defined by given protocol file at the provided lamella position
         '''
@@ -1980,7 +1981,8 @@ class fibsem:
                     '.ptf')
                 #current needs to go here
                 current=steps_current[step_num]
-                time=float(steps_time[step_num])
+                # Scale the milling time by the depth parameter
+                time=float(steps_time[step_num]) * depth
                 self.save_pattern(patterns_output_directory, pattern_name, pattern,current,time)
                 pattern_names.append(pattern_name)
                 pattern_num = pattern_num + 1
