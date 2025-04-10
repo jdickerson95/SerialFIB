@@ -2922,6 +2922,15 @@ class TrenchMillThread(QtCore.QThread):
                     
                     # Only perform auto-focus if enabled for this position
                     if autofocus_enabled:
+                        # Use alignment_current which is typically set to 10 pA
+                        # If not explicitly set, we'll use 10 pA directly
+                        try:
+                            imaging_current = scope.alignment_current
+                        except:
+                            imaging_current = float(1e-11)  # 10 pA
+                        
+                        # Use align_current to change the beam current before taking the image
+                        scope.align_current(imaging_current, beam='ION')
                         # Auto-focus on the right trench before trench milling
                         self.signal.emit("Auto-focusing on trench position before milling...")
                         try:
@@ -3090,6 +3099,15 @@ class RoughProtocolThread(QtCore.QThread):
                         
                         # Only perform auto-focus if enabled for this position
                         if autofocus_enabled:
+                            # Use alignment_current which is typically set to 10 pA
+                            # If not explicitly set, we'll use 10 pA directly
+                            try:
+                                imaging_current = scope.alignment_current
+                            except:
+                                imaging_current = float(1e-11)  # 10 pA
+                        
+                            # Use align_current to change the beam current before taking the image
+                            scope.align_current(imaging_current, beam='ION')
                             # Auto-focus on the right trench before rough protocol
                             self.signal.emit("Auto-focusing on trench position before rough protocol...")
                             try:
@@ -3193,6 +3211,15 @@ class FineProtocolThread(QtCore.QThread):
                         
                         # Only perform auto-focus if enabled for this position
                         if autofocus_enabled:
+                            # Use alignment_current which is typically set to 10 pA
+                            # If not explicitly set, we'll use 10 pA directly
+                            try:
+                                imaging_current = scope.alignment_current
+                            except:
+                                imaging_current = float(1e-11)  # 10 pA
+                        
+                            # Use align_current to change the beam current before taking the image
+                            scope.align_current(imaging_current, beam='ION')
                             # Auto-focus on the right trench before fine protocol
                             self.signal.emit("Auto-focusing on trench position before fine protocol...")
                             try:
