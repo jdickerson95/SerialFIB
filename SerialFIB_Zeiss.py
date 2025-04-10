@@ -2898,8 +2898,6 @@ class TrenchMillThread(QtCore.QThread):
                     alignment_image = ui.ImageBufferImages[image_number]
 
                     pattern_dir = ui.output_dir + '/' + str(label) + '/'
-                    log_out_new = scope.run_trench_milling(label, alignment_image, stagepos, pattern_dir)
-                    ui.log_out = ui.log_out + log_out_new
                     
                     # Check if auto-focus is enabled for this position
                     autofocus_enabled = False
@@ -2914,8 +2912,8 @@ class TrenchMillThread(QtCore.QThread):
                     
                     # Only perform auto-focus if enabled for this position
                     if autofocus_enabled:
-                        # Auto-focus on the right trench before taking a new image
-                        self.signal.emit("Auto-focusing on trench position...")
+                        # Auto-focus on the right trench before trench milling
+                        self.signal.emit("Auto-focusing on trench position before milling...")
                         try:
                             # Move to the trench, auto-focus, and move back to lamella position
                             scope.auto_focus_trench(
@@ -2931,6 +2929,10 @@ class TrenchMillThread(QtCore.QThread):
                             self.signal.emit(f"Warning: Auto-focus on trench failed: {str(focus_ex)}")
                     else:
                         self.signal.emit("Auto-focus on trench skipped (disabled for this position)")
+                    
+                    # Run the trench milling operation
+                    log_out_new = scope.run_trench_milling(label, alignment_image, stagepos, pattern_dir)
+                    ui.log_out = ui.log_out + log_out_new
                     
                     # Take a new ion beam image after trench milling
                     self.signal.emit("Taking new IB alignment image after trench milling...")
@@ -3065,7 +3067,36 @@ class RoughProtocolThread(QtCore.QThread):
 
                         pattern_dir = ui.output_dir + '/' + str(label) + '/'
 
-
+                        # Check if auto-focus is enabled for this position
+                        autofocus_enabled = False
+                        try:
+                            # Get the auto-focus flag from column 8 (0 = disabled, 1 = enabled)
+                            autofocus_item = ui.tableWidget.item(i, 8)
+                            if autofocus_item and autofocus_item.text() == "1":
+                                autofocus_enabled = True
+                        except Exception as af_ex:
+                            self.signal.emit(f"Warning: Could not read auto-focus flag: {str(af_ex)}")
+                            # Default to false if there's an error
+                        
+                        # Only perform auto-focus if enabled for this position
+                        if autofocus_enabled:
+                            # Auto-focus on the right trench before rough protocol
+                            self.signal.emit("Auto-focusing on trench position before rough protocol...")
+                            try:
+                                # Move to the trench, auto-focus, and move back to lamella position
+                                scope.auto_focus_trench(
+                                    directory=pattern_dir,
+                                    pattern_lamella=str(label)+'_lamella.ptf',
+                                    pattern_above=str(label)+'_tp.ptf',
+                                    pattern_below=str(label)+'_bp.ptf',
+                                    beam="ION",  # Using ion beam for auto-focus
+                                    trench_side="right"  # Focus on the right trench by default
+                                )
+                                self.signal.emit("Auto-focus on trench completed successfully")
+                            except Exception as focus_ex:
+                                self.signal.emit(f"Warning: Auto-focus on trench failed: {str(focus_ex)}")
+                        else:
+                            self.signal.emit("Auto-focus on trench skipped (disabled for this position)")
 
                         protocolfile = ui.roughmillprotocol
                         log_out_new = scope.run_milling_protocol(label, alignment_image, stagepos, pattern_dir,
@@ -3126,6 +3157,37 @@ class FineProtocolThread(QtCore.QThread):
                         alignment_image = ui.ImageBufferImages[image_number]
 
                         pattern_dir = ui.output_dir + '/' + str(label) + '/'
+
+                        # Check if auto-focus is enabled for this position
+                        autofocus_enabled = False
+                        try:
+                            # Get the auto-focus flag from column 8 (0 = disabled, 1 = enabled)
+                            autofocus_item = ui.tableWidget.item(i, 8)
+                            if autofocus_item and autofocus_item.text() == "1":
+                                autofocus_enabled = True
+                        except Exception as af_ex:
+                            self.signal.emit(f"Warning: Could not read auto-focus flag: {str(af_ex)}")
+                            # Default to false if there's an error
+                        
+                        # Only perform auto-focus if enabled for this position
+                        if autofocus_enabled:
+                            # Auto-focus on the right trench before fine protocol
+                            self.signal.emit("Auto-focusing on trench position before fine protocol...")
+                            try:
+                                # Move to the trench, auto-focus, and move back to lamella position
+                                scope.auto_focus_trench(
+                                    directory=pattern_dir,
+                                    pattern_lamella=str(label)+'_lamella.ptf',
+                                    pattern_above=str(label)+'_tp.ptf',
+                                    pattern_below=str(label)+'_bp.ptf',
+                                    beam="ION",  # Using ion beam for auto-focus
+                                    trench_side="right"  # Focus on the right trench by default
+                                )
+                                self.signal.emit("Auto-focus on trench completed successfully")
+                            except Exception as focus_ex:
+                                self.signal.emit(f"Warning: Auto-focus on trench failed: {str(focus_ex)}")
+                        else:
+                            self.signal.emit("Auto-focus on trench skipped (disabled for this position)")
 
                         protocolfile=ui.finemillprotocol
                         #protocolfile = ui.finemillprotocol
