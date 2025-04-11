@@ -2953,6 +2953,7 @@ class RoughMillThread(QtCore.QThread):
 class TrenchMillThread(QtCore.QThread):
     signal = pyqtSignal('PyQt_PyObject')
     image_update_signal = pyqtSignal(object, int, object, str)  # (img_data, image_number, pattern_list, label)
+    dialog_close_signal = pyqtSignal()  # New signal specifically for closing the dialog
     global ui
 
     def __init__(self):
@@ -3109,15 +3110,14 @@ class TrenchMillThread(QtCore.QThread):
                 ui.sysout.write(ui.log_out)
 
             self.signal.emit("Trench Mill done!")
-            QtCore.QMetaObject.invokeMethod(ui, "closeProgressDialog", 
-                                          QtCore.Qt.QueuedConnection)
+            self.dialog_close_signal.emit()  # Emit signal to close dialog
         except Exception as e:
             print("Something went wrong. Most likely, your output directory is not valid!")
             print(f"Exception: {str(e)}")
             print(sys.exc_info())
-
-            QtCore.QMetaObject.invokeMethod(ui, "closeProgressDialog", 
-                                          QtCore.Qt.QueuedConnection)
+            
+            # Instead of invokeMethod:
+            self.dialog_close_signal.emit()  # Emit signal to close dialog
 
 
 
