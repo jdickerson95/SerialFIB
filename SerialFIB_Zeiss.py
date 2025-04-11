@@ -307,7 +307,10 @@ class Ui_MainWindow(object):
     def closeProgressDialog(self):
         """Safely close the progress dialog from the main thread"""
         if hasattr(self, 'progressDialog') and self.progressDialog:
-            self.progressDialog.close()
+            try:
+                self.progressDialog.close()
+            except Exception as e:
+                print(f"Error closing progress dialog: {str(e)}")
     
     def setupUi(self, MainWindow):
         '''
@@ -2332,7 +2335,7 @@ class Ui_MainWindow(object):
             trenchmill_thread.signal.connect(self.Signal_Done)
             trenchmill_thread.image_update_signal.connect(self.update_image_in_ui)  # Connect the new image update signal
             # Connect the dialog close signal directly to closeProgressDialog
-            trenchmill_thread.dialog_close_signal.connect(self.closeProgressDialog)
+            #trenchmill_thread.dialog_close_signal.connect(self.closeProgressDialog)
             
             # Initialize and start the thread
             trenchmill_thread.__init__()
@@ -2363,7 +2366,7 @@ class Ui_MainWindow(object):
             # Cleanup connections to avoid memory leaks
             trenchmill_thread.signal.disconnect(self.Signal_Done)
             trenchmill_thread.image_update_signal.disconnect(self.update_image_in_ui)
-            trenchmill_thread.dialog_close_signal.disconnect(self.closeProgressDialog)
+            #trenchmill_thread.dialog_close_signal.disconnect(self.closeProgressDialog)
             
             # Signal completion
             self.Signal_Done('Trench Mill stopped')
@@ -3126,8 +3129,7 @@ class TrenchMillThread(QtCore.QThread):
             print(f"Exception: {str(e)}")
             print(sys.exc_info())
             
-            # Instead of invokeMethod:
-            self.dialog_close_signal.emit()  # Emit signal to close dialog
+            self.signal.emit(f"Error in trench milling: {str(e)}")
 
 
 
