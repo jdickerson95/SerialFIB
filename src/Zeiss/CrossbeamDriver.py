@@ -143,6 +143,7 @@ class fibsem:
         # Default alignment current
         self.alignment_current = float(1e-11)
         self.trench_offset = 5e-06
+        self.trench_time = 10
         # Variable for stopping operation
         self.continuerun = True
 
@@ -1295,8 +1296,8 @@ class fibsem:
 
         pattern_left_name = lamella_name + str('_trench_left.ptf')
         pattern_right_name = lamella_name + str('_trench_right.ptf')
-        self.save_pattern(patterns_output_directory, pattern_left_name, pattern_left, current=3e-10, time=90)
-        self.save_pattern(patterns_output_directory, pattern_right_name, pattern_right, current=3e-10, time=90)
+        self.save_pattern(patterns_output_directory, pattern_left_name, pattern_left, current=3e-10, time=self.trench_time)
+        self.save_pattern(patterns_output_directory, pattern_right_name, pattern_right, current=3e-10, time=self.trench_time)
 
         self.moveStageAbsolute(stagepos)
 

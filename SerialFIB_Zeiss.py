@@ -90,7 +90,7 @@ print(scope)
 
 
 ### IMPORT EXTERNAL PACKAGES
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QPainter
 from PyQt5.QtWidgets import QGraphicsScene
 import numpy as np
@@ -243,13 +243,59 @@ class Ui_MainWindow(object):
         self.pattern_dict=pattern_dict_new
         return()
     def get_number_imageBuffer(self):
-        '''
-        Get imageBufferHandle
+        return self.ImageBuffer.count()
 
-        Input: Ma
-        '''
-        return(self.ImageBufferHandle)
-####
+    def update_image_in_ui(self, img_data, image_number, pattern_list, label):
+        """
+        Thread-safe method to update the UI with a new image.
+        This method should be called in the main thread via signals.
+        
+        Args:
+            img_data: The processed image data
+            image_number: The index in the image buffer
+            pattern_list: List of patterns to add to the scene
+            label: The label of the position for logging
+        """
+        try:
+            # Create a new scene for this image
+            scene = self.get_scene()
+            scene.clear()
+            
+            # Create pixmap from image data
+            height, width = np.shape(img_data)[0], np.shape(img_data)[1]
+            qImg = QtGui.QImage(img_data, width, height, QtGui.QImage.Format_Grayscale8)
+            pixmapImg = QtGui.QPixmap.fromImage(qImg)
+            
+            # Set scene properties
+            self.graphicsView.setSceneRect(QtCore.QRectF(pixmapImg.rect()))
+            self.graphicsView.fitInView(self.graphicsView.sceneRect(), self.graphicsView.aspectRatioMode)
+            
+            # Add image to scene
+            scene.addPixmap(pixmapImg)
+            
+            # Re-add all the patterns to the scene
+            for pattern in pattern_list:
+                scene.addItem(Rectangle(pattern.x, pattern.y, pattern.h, pattern.w))
+            
+            # Update scene in buffer
+            if len(self.sceneBuffer) > image_number:
+                self.sceneBuffer[image_number] = scene
+            
+            # If this is the currently displayed image, update the view
+            if int(self.ImageBufferHandle) == image_number:
+                self.graphicsView.setScene(scene)
+                self.scene = scene
+            
+            print(f"Updated alignment image for position {label} while preserving patterns")
+        except Exception as e:
+            print(f"Error in update_image_in_ui: {str(e)}")
+    
+    @QtCore.pyqtSlot()
+    def closeProgressDialog(self):
+        """Safely close the progress dialog from the main thread"""
+        if hasattr(self, 'progressDialog') and self.progressDialog:
+            self.progressDialog.close()
+    
     def setupUi(self, MainWindow):
         '''
         GUI Setup as created by pyuic
@@ -886,7 +932,7 @@ class Ui_MainWindow(object):
 
         # Set scene size to image size.
         self.graphicsView.setSceneRect(QtCore.QRectF(pixmapImg.rect()))  
-        self.graphicsView.fitInView(self.graphicsView.sceneRect(),self.graphicsView.aspectRatioMode)
+        self.graphicsView.fitInView(self.graphicsView.sceneRect(), self.graphicsView.aspectRatioMode)
         w2=self.graphicsView.sceneRect().width()
         h2=self.graphicsView.sceneRect().height()
 
@@ -1047,10 +1093,20 @@ class Ui_MainWindow(object):
 
 
 
-    def Signal_Done(self,result):
-        print("Result: "+result)
-
-        self.progressDialog.close()
+    def Signal_Done(self, result):
+        """
+        Handle signals from worker threads with results or status messages.
+        This method is connected to the signal emitted by worker threads.
+        """
+        print("Result: " + result)
+        
+        # Safely close the progress dialog if it exists
+        if hasattr(self, 'progressDialog') and self.progressDialog:
+            try:
+                self.progressDialog.close()
+            except Exception as e:
+                print(f"Error closing progress dialog: {str(e)}")
+        
         return()
 
     
@@ -2260,6 +2316,9 @@ class Ui_MainWindow(object):
             buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Cancel,self.progressDialog)
 
             trenchmill_thread.__init__()
+            # Connect signals before starting the thread
+            trenchmill_thread.signal.connect(self.Signal_Done)
+            trenchmill_thread.image_update_signal.connect(self.update_image_in_ui)  # Connect the new image update signal
             trenchmill_thread.start()
             buttonBox.rejected.connect(self.progressDialog.reject)
             verticalLayout.addWidget(buttonBox)
@@ -2874,6 +2933,7 @@ class RoughMillThread(QtCore.QThread):
 
 class TrenchMillThread(QtCore.QThread):
     signal = pyqtSignal('PyQt_PyObject')
+    image_update_signal = pyqtSignal(object, int, object, str)  # (img_data, image_number, pattern_list, label)
     global ui
 
     def __init__(self):
@@ -2968,7 +3028,8 @@ class TrenchMillThread(QtCore.QThread):
                             imaging_current = float(1e-11)  # 10 pA
                         
                         # Use align_current to change the beam current before taking the image
-                        scope.align_current(imaging_current, beam='ION')
+                        #scope.align_current(imaging_current, beam='ION')
+                        scope.align_current_test(imaging_current)
                         
                         # Take a new image with ion beam
                         current_img = scope.take_image_IB()
@@ -2987,63 +3048,40 @@ class TrenchMillThread(QtCore.QThread):
                         except Exception as pattern_ex:
                             self.signal.emit(f"Warning: Could not retrieve patterns for image {image_number}: {str(pattern_ex)}")
                         
-                        # Update the alignment image in the buffer
+                        # Update the alignment image in the buffer (this is thread-safe)
                         ui.ImageBufferImages[image_number] = current_img
                         
-                        # Update the scene for this image
+                        # Thread-safe UI update: Process the image data here
                         try:
-                            # Get the image data
+                            # Get the image data (processed in the thread)
                             array = current_img.data
-                            
-                            # Create a new scene for this image
-                            scene = ui.get_scene()
-                            scene.clear()
                             
                             # Convert the image for display
                             array8u = cv2.convertScaleAbs(array, alpha=(255.0/65535.0))
                             img_8bit = np.uint8(array)
                             img_8bit = cv2.cvtColor(img_8bit, cv2.COLOR_BGR2GRAY)
                             
-                            # Create pixmap from image
-                            height, width = np.shape(img_8bit)[0], np.shape(img_8bit)[1]
-                            qImg = QtGui.QImage(img_8bit, width, height, QtGui.QImage.Format_Grayscale8)
-                            pixmapImg = QtGui.QPixmap.fromImage(qImg)
+                            # Emit signal with the processed image and necessary data for UI thread
+                            self.signal.emit(f"Processed image for position {label}, updating UI...")
+                            self.image_update_signal.emit(img_8bit, image_number, pattern_list, label)
                             
-                            # Set scene properties
-                            ui.graphicsView.setSceneRect(QtCore.QRectF(pixmapImg.rect()))
-                            ui.graphicsView.fitInView(ui.graphicsView.sceneRect(), ui.graphicsView.aspectRatioMode)
-                            
-                            # Add image to scene
-                            scene.addPixmap(pixmapImg)
-                            
-                            # Re-add all the patterns to the scene
-                            for pattern in pattern_list:
-                                scene.addItem(Rectangle(pattern.x, pattern.y, pattern.h, pattern.w))
-                            
-                            # Update scene in buffer
-                            if len(ui.sceneBuffer) > image_number:
-                                ui.sceneBuffer[image_number] = scene
-                            
-                            # If this is the currently displayed image, update the view
-                            if int(ui.ImageBufferHandle) == image_number:
-                                ui.graphicsView.setScene(scene)
-                                ui.scene = scene
-                            
-                            self.signal.emit(f"Updated alignment image for position {label} while preserving patterns")
                         except Exception as scene_ex:
-                            self.signal.emit(f"Error updating scene for new image: {str(scene_ex)}")
+                            self.signal.emit(f"Error processing image data: {str(scene_ex)}")
                     except Exception as ex:
                         self.signal.emit(f"Error taking post-mill image: {str(ex)}")
 
                 ui.sysout.write(ui.log_out)
 
             self.signal.emit("Trench Mill done!")
-            ui.progressDialog.close()
-        except:
+            QtCore.QMetaObject.invokeMethod(ui, "closeProgressDialog", 
+                                          QtCore.Qt.QueuedConnection)
+        except Exception as e:
             print("Something went wrong. Most likely, your output directory is not valid!")
+            print(f"Exception: {str(e)}")
             print(sys.exc_info())
 
-            ui.progressDialog.close()
+            QtCore.QMetaObject.invokeMethod(ui, "closeProgressDialog", 
+                                          QtCore.Qt.QueuedConnection)
 
 
 
