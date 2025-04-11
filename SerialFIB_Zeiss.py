@@ -243,7 +243,13 @@ class Ui_MainWindow(object):
         self.pattern_dict=pattern_dict_new
         return()
     def get_number_imageBuffer(self):
-        return self.ImageBuffer.count()
+        """
+        Safely get the number of images in the image buffer.
+        Returns 0 if the ImageBuffer hasn't been created yet.
+        """
+        if hasattr(self, 'ImageBuffer') and self.ImageBuffer is not None:
+            return self.ImageBuffer.count()
+        return 0
 
     def update_image_in_ui(self, img_data, image_number, pattern_list, label):
         """
@@ -282,13 +288,20 @@ class Ui_MainWindow(object):
                 self.sceneBuffer[image_number] = scene
             
             # If this is the currently displayed image, update the view
-            if int(self.ImageBufferHandle) == image_number:
-                self.graphicsView.setScene(scene)
-                self.scene = scene
+            # Safely handle ImageBufferHandle which might be a string or not exist yet
+            try:
+                current_handle = int(self.ImageBufferHandle) if hasattr(self, 'ImageBufferHandle') else -1
+                if current_handle == image_number:
+                    self.graphicsView.setScene(scene)
+                    self.scene = scene
+            except (ValueError, TypeError):
+                print(f"Warning: Could not compare ImageBufferHandle with image_number")
             
             print(f"Updated alignment image for position {label} while preserving patterns")
         except Exception as e:
             print(f"Error in update_image_in_ui: {str(e)}")
+            import traceback
+            traceback.print_exc()
     
     @QtCore.pyqtSlot()
     def closeProgressDialog(self):
@@ -2308,56 +2321,62 @@ class Ui_MainWindow(object):
         self.number=self.number+1
         scope.define_output_dir(self.output_dir+'/')
         try:
-
+            # Create progress dialog
             self.progressDialog = QtWidgets.QDialog()
             verticalLayout = QtWidgets.QVBoxLayout(self.progressDialog)
             label = QtWidgets.QLabel("Running Trench Milling",self.progressDialog)
             verticalLayout.addWidget(label)
             buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Cancel,self.progressDialog)
 
-            trenchmill_thread.__init__()
             # Connect signals before starting the thread
             trenchmill_thread.signal.connect(self.Signal_Done)
             trenchmill_thread.image_update_signal.connect(self.update_image_in_ui)  # Connect the new image update signal
+            
+            # Initialize and start the thread
+            trenchmill_thread.__init__()
             trenchmill_thread.start()
+            
+            # Connect dialog buttons
             buttonBox.rejected.connect(self.progressDialog.reject)
             verticalLayout.addWidget(buttonBox)
             scope.continuerun = True
+            
+            # Monitor thread execution
             while trenchmill_thread.isRunning():
                 if self.progressDialog.exec() == QtWidgets.QDialog.Rejected:
-
-
                     self.Signal_Done('Trench Milling stopped')
-
                     print("Trench Milling has been stopped")
-
-
-                    #while trenchmill_thread.isRunning():
-
-                        #from autoscript_sdb_microscope_client.enumerations import PatterningState
 
                     if scope.is_idle():
                         continue
                     else:
                         scope.stop_patterning()
-
                         scope.stop()
                         scope.continuerun=False
                         trenchmill_thread.continuerun=False
-                        trenchmill_thread.stop()
+                        trenchmill_thread.quit()  # Use quit instead of stop
                         self.progressDialog.close()
-
                         print("Operation terminated")
 
-            #self.progressDialog.close()
-            #ui.progressDialog.close()
+            # Cleanup connections to avoid memory leaks
+            trenchmill_thread.signal.disconnect(self.Signal_Done)
+            trenchmill_thread.image_update_signal.disconnect(self.update_image_in_ui)
+            
+            # Signal completion
             self.Signal_Done('Trench Mill stopped')
-        except:
-            print("Something went wrong with the setup.")
-            print(sys.exc_info())
-        self.progressDialog.close()
+        except Exception as e:
+            print(f"Something went wrong with the setup: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            
+        # Make sure dialog is closed
+        if hasattr(self, 'progressDialog') and self.progressDialog:
+            try:
+                self.progressDialog.close()
+            except:
+                pass
         return()
-        
+
     def trenchroughprotocol(self):
         """
         This method combines the trench milling and rough protocol operations.
@@ -2937,16 +2956,28 @@ class TrenchMillThread(QtCore.QThread):
     global ui
 
     def __init__(self):
-        QtCore.QThread.__init__(self)
+        """Initialize the thread with proper parent to avoid issues with QTimer"""
+        super(TrenchMillThread, self).__init__()
+        # Set thread attributes
+        self.continuerun = True
+        
+    def quit(self):
+        """Safely quit the thread"""
+        self.continuerun = False
+        super(TrenchMillThread, self).quit()
+        self.wait(3000)  # Wait for up to 3 seconds for the thread to exit gracefully
 
     def run(self):
         try:
-
             ui.write_patterns()
             row_count = ui.tableWidget.rowCount()
 
-
             for i in range(row_count):
+                # Check if we should continue running
+                if not self.continuerun:
+                    self.signal.emit("Thread stopping early due to user request")
+                    break
+                    
                 ui.log_out = ''
                 if ui.tableWidget.item(i, 7) == None:
                     print("Skipping Position " + str(ui.tableWidget.item(i, 0).text()))
@@ -3070,6 +3101,11 @@ class TrenchMillThread(QtCore.QThread):
                     except Exception as ex:
                         self.signal.emit(f"Error taking post-mill image: {str(ex)}")
 
+                    # Check again if we should continue running
+                    if not self.continuerun:
+                        self.signal.emit("Thread stopping early due to user request")
+                        break
+
                 ui.sysout.write(ui.log_out)
 
             self.signal.emit("Trench Mill done!")
@@ -3101,6 +3137,11 @@ class RoughProtocolThread(QtCore.QThread):
             row_count = ui.tableWidget.rowCount()
 
             for i in range(row_count):
+                # Check if we should continue running
+                if not self.continuerun:
+                    self.signal.emit("Thread stopping early due to user request")
+                    break
+                    
                 if self.continuerun:
                     ui.log_out = ''
                     if ui.tableWidget.item(i, 7) == None:
@@ -3181,6 +3222,11 @@ class RoughProtocolThread(QtCore.QThread):
                                                                 protocolfile, mode='rough', depth=depth)
                         ui.log_out = ui.log_out + log_out_new
 
+                    # Check again if we should continue running
+                    if not self.continuerun:
+                        self.signal.emit("Thread stopping early due to user request")
+                        break
+
                     ui.sysout.write(ui.log_out)
 
             self.signal.emit("Rough Protocol done!")
@@ -3213,6 +3259,11 @@ class FineProtocolThread(QtCore.QThread):
 
 
             for i in range(row_count):
+                # Check if we should continue running
+                if not self.continuerun:
+                    self.signal.emit("Thread stopping early due to user request")
+                    break
+                    
                 if self.continuerun:
                     ui.log_out = ''
                     if ui.tableWidget.item(i, 7) == None:
@@ -3291,6 +3342,11 @@ class FineProtocolThread(QtCore.QThread):
                                                                  protocolfile, mode='fine', depth=depth)
                         ui.log_out = ui.log_out + log_out_new
 
+                    # Check again if we should continue running
+                    if not self.continuerun:
+                        self.signal.emit("Thread stopping early due to user request")
+                        break
+
                     ui.sysout.write(ui.log_out)
 
 
@@ -3324,6 +3380,11 @@ class VolumeImagingThread(QtCore.QThread):
 
 
             for i in range(row_count):
+                # Check if we should continue running
+                if not self.continuerun:
+                    self.signal.emit("Thread stopping early due to user request")
+                    break
+                    
                 if self.continuerun:
                     ui.log_out = ''
                     if ui.tableWidget.item(i, 7) == None:
@@ -3353,6 +3414,11 @@ class VolumeImagingThread(QtCore.QThread):
                         log_out_new = scope.run_SAV(label, alignment_image, stagepos, pattern_dir, paramsfile)
                         ui.log_out = ui.log_out + log_out_new
 
+                    # Check again if we should continue running
+                    if not self.continuerun:
+                        self.signal.emit("Thread stopping early due to user request")
+                        break
+
                     ui.sysout.write(ui.log_out)
 
             self.signal.emit("Fine Protocol done!")
@@ -3381,6 +3447,11 @@ class CustomPatternfileThread(QtCore.QThread):
 
 
             for i in range(row_count):
+                # Check if we should continue running
+                if not self.continuerun:
+                    self.signal.emit("Thread stopping early due to user request")
+                    break
+                    
                 if self.continuerun:
                     ui.log_out = ''
                     if ui.tableWidget.item(i, 7) == None:
@@ -3410,6 +3481,11 @@ class CustomPatternfileThread(QtCore.QThread):
                                                                protocolfile)
 
                         ui.log_out = ui.log_out + log_out_new
+
+                    # Check again if we should continue running
+                    if not self.continuerun:
+                        self.signal.emit("Thread stopping early due to user request")
+                        break
 
                     ui.sysout.write(ui.log_out)
 
@@ -3443,6 +3519,11 @@ class CustomProtocolThread(QtCore.QThread):
 
 
             for i in range(row_count):
+                # Check if we should continue running
+                if not self.continuerun:
+                    self.signal.emit("Thread stopping early due to user request")
+                    break
+                    
                 if self.continuerun:
                     ui.log_out = ''
                     if ui.tableWidget.item(i, 7) == None:
@@ -3472,6 +3553,11 @@ class CustomProtocolThread(QtCore.QThread):
                         log_out_new = scope.run_milling_protocol(label, alignment_image, stagepos, pattern_dir,
                                                                  protocolfile)
                         ui.log_out = ui.log_out + log_out_new
+
+                    # Check again if we should continue running
+                    if not self.continuerun:
+                        self.signal.emit("Thread stopping early due to user request")
+                        break
 
                     ui.sysout.write(ui.log_out)
 
