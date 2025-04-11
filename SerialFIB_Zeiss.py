@@ -2331,6 +2331,8 @@ class Ui_MainWindow(object):
             # Connect signals before starting the thread
             trenchmill_thread.signal.connect(self.Signal_Done)
             trenchmill_thread.image_update_signal.connect(self.update_image_in_ui)  # Connect the new image update signal
+            # Connect the dialog close signal directly to closeProgressDialog
+            trenchmill_thread.dialog_close_signal.connect(self.closeProgressDialog)
             
             # Initialize and start the thread
             trenchmill_thread.__init__()
@@ -2361,6 +2363,7 @@ class Ui_MainWindow(object):
             # Cleanup connections to avoid memory leaks
             trenchmill_thread.signal.disconnect(self.Signal_Done)
             trenchmill_thread.image_update_signal.disconnect(self.update_image_in_ui)
+            trenchmill_thread.dialog_close_signal.disconnect(self.closeProgressDialog)
             
             # Signal completion
             self.Signal_Done('Trench Mill stopped')
@@ -3047,10 +3050,12 @@ class TrenchMillThread(QtCore.QThread):
                     
                     # Take a new ion beam image after trench milling
                     self.signal.emit("Taking new IB alignment image after trench milling...")
+                    print("Taking new IB alignment image after trench milling...")
                     try:
                         # Switch to the imaging alignment current (typically 10 pA) before taking the image
                         # This ensures we're not using the higher milling current (300 pA) for imaging
                         self.signal.emit("Switching to imaging current...")
+                        print("Switching to imaging current...")
                         
                         # Use alignment_current which is typically set to 10 pA
                         # If not explicitly set, we'll use 10 pA directly
@@ -3064,13 +3069,16 @@ class TrenchMillThread(QtCore.QThread):
                         scope.align_current_test(imaging_current)
                         
                         # Take a new image with ion beam
+                        print("Taking new image with ion beam...")
                         current_img = scope.take_image_IB()
                         
                         # Save the updated image
+                        print("Saving updated image...")
                         patterns_output_directory = pattern_dir[:-1] + '_out/'
                         current_img.save(patterns_output_directory[:-1] + '/after_trenches.tif')
                         
                         # Store the patterns associated with this image before replacing it
+                        print("Storing patterns associated with this image...")
                         # This ensures we preserve the pattern information
                         pattern_list = []
                         try:
@@ -3081,9 +3089,11 @@ class TrenchMillThread(QtCore.QThread):
                             self.signal.emit(f"Warning: Could not retrieve patterns for image {image_number}: {str(pattern_ex)}")
                         
                         # Update the alignment image in the buffer (this is thread-safe)
+                        print("Updating alignment image in the buffer...")
                         ui.ImageBufferImages[image_number] = current_img
                         
                         # Thread-safe UI update: Process the image data here
+                        print("Processing image data...")
                         try:
                             # Get the image data (processed in the thread)
                             array = current_img.data
