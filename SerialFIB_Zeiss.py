@@ -3068,13 +3068,13 @@ class TrenchMillThread(QtCore.QThread):
                             imaging_current = float(1e-11)  # 10 pA
                         
                         # Use align_current to change the beam current before taking the image
-                        #scope.align_current(imaging_current, beam='ION')
-                        scope.align_current_test(imaging_current)
+                        scope.align_current(imaging_current, beam='ION')
+                        #scope.align_current_test(imaging_current)
                         
                         # Take a new image with ion beam
                         print("Taking new image with ion beam...")
                         current_img = scope.take_image_IB()
-                        
+                        '''
                         # Save the updated image
                         print("Saving updated image...")
                         patterns_output_directory = pattern_dir[:-1] + '_out/'
@@ -3090,7 +3090,7 @@ class TrenchMillThread(QtCore.QThread):
                                 pattern_list = ui.pattern_dict[str(image_number)]
                         except Exception as pattern_ex:
                             self.signal.emit(f"Warning: Could not retrieve patterns for image {image_number}: {str(pattern_ex)}")
-                        
+                        '''
                         # Update the alignment image in the buffer (this is thread-safe)
                         print("Updating alignment image in the buffer...")
                         ui.ImageBufferImages[image_number] = current_img
