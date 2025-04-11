@@ -3094,6 +3094,7 @@ class TrenchMillThread(QtCore.QThread):
                         # Update the alignment image in the buffer (this is thread-safe)
                         print("Updating alignment image in the buffer...")
                         ui.ImageBufferImages[image_number] = current_img
+                        print("Updated alignment image in the buffer")
                         '''
                         # Thread-safe UI update: Process the image data here
                         print("Processing image data...")
@@ -3124,6 +3125,7 @@ class TrenchMillThread(QtCore.QThread):
                 ui.sysout.write(ui.log_out)
 
             self.signal.emit("Trench Mill done!")
+            ui.progressDialog.close()
             self.dialog_close_signal.emit()  # Emit signal to close dialog
         except Exception as e:
             print("Something went wrong. Most likely, your output directory is not valid!")
@@ -3131,6 +3133,7 @@ class TrenchMillThread(QtCore.QThread):
             print(sys.exc_info())
             
             self.signal.emit(f"Error in trench milling: {str(e)}")
+            ui.progressDialog.close()
 
 
 
