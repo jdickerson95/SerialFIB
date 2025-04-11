@@ -3094,7 +3094,7 @@ class TrenchMillThread(QtCore.QThread):
                         # Update the alignment image in the buffer (this is thread-safe)
                         print("Updating alignment image in the buffer...")
                         ui.ImageBufferImages[image_number] = current_img
-                        
+                        '''
                         # Thread-safe UI update: Process the image data here
                         print("Processing image data...")
                         try:
@@ -3103,7 +3103,7 @@ class TrenchMillThread(QtCore.QThread):
                             
                             # Convert the image for display
                             array8u = cv2.convertScaleAbs(array, alpha=(255.0/65535.0))
-                            img_8bit = np.uint8(array)
+                            img_8bit = np.uint8(array8u)
                             img_8bit = cv2.cvtColor(img_8bit, cv2.COLOR_BGR2GRAY)
                             
                             # Emit signal with the processed image and necessary data for UI thread
@@ -3112,6 +3112,7 @@ class TrenchMillThread(QtCore.QThread):
                             
                         except Exception as scene_ex:
                             self.signal.emit(f"Error processing image data: {str(scene_ex)}")
+                        '''
                     except Exception as ex:
                         self.signal.emit(f"Error taking post-mill image: {str(ex)}")
 
