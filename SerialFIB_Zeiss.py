@@ -3074,6 +3074,8 @@ class TrenchMillThread(QtCore.QThread):
                         # Take a new image with ion beam
                         print("Taking new image with ion beam...")
                         current_img = scope.take_image_IB()
+                        img_8bit=np.uint8(current_img)
+                        img_8bit = cv2.cvtColor(img_8bit,cv2.COLOR_BGR2GRAY)
                         '''
                         # Save the updated image
                         print("Saving updated image...")
@@ -3093,7 +3095,7 @@ class TrenchMillThread(QtCore.QThread):
                         '''
                         # Update the alignment image in the buffer (this is thread-safe)
                         print("Updating alignment image in the buffer...")
-                        ui.ImageBufferImages[image_number] = current_img
+                        ui.ImageBufferImages[image_number] = img_8bit
                         print("Updated alignment image in the buffer")
                         '''
                         # Thread-safe UI update: Process the image data here
