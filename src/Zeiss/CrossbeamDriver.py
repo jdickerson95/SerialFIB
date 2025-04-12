@@ -285,6 +285,7 @@ class fibsem:
         #else:
         #    print('8bit image')
         #print(image)
+        print("taken image")
         return(image)
     def take_image_EB(self):
         '''
